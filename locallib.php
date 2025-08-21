@@ -34,7 +34,6 @@ require_once($CFG->libdir . '/questionlib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assign_submission_qpy extends assign_submission_plugin {
-
     /**
      * Get the name of the qpy submission plugin.
      *
@@ -64,8 +63,12 @@ class assign_submission_qpy extends assign_submission_plugin {
         $mform->hideIf('assignsubmission_qpy_questionid', 'assignsubmission_qpy_enabled', 'notchecked');
 
         $behaviours = question_engine::get_behaviour_options($defaultbehaviour);
-        $mform->addElement('select', 'assignsubmission_qpy_preferredbehaviour',
-                get_string('howquestionsbehave', 'question'), $behaviours);
+        $mform->addElement(
+            'select',
+            'assignsubmission_qpy_preferredbehaviour',
+            get_string('howquestionsbehave', 'question'),
+            $behaviours,
+        );
         $mform->setDefault('assignsubmission_qpy_preferredbehaviour', $defaultbehaviour);
         $mform->addHelpButton('assignsubmission_qpy_preferredbehaviour', 'howquestionsbehave', 'question');
         $mform->hideIf('assignsubmission_qpy_preferredbehaviour', 'assignsubmission_qpy_enabled', 'notchecked');
@@ -91,7 +94,7 @@ class assign_submission_qpy extends assign_submission_plugin {
 
         return $errors;
         // TODO: Check permissions.
-        // TODO: Check grade type "point" selected
+        // TODO: Check grade type "point" selected.
     }
 
     /**
@@ -152,7 +155,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         global $DB;
 
         if ($submission === null) {
-            $mform->addElement('html', 'Keine Submission vorhanden!'); // TODO
+            $mform->addElement('html', 'Keine Submission vorhanden!'); // TODO.
             return true;
         }
 
@@ -197,10 +200,13 @@ class assign_submission_qpy extends assign_submission_plugin {
     /**
      * Create a question usage for the current user and add the question.
      *
+     * @param int $submissionid
+     * @param question_usage_by_activity|null $basedon
      * @return question_usage_by_activity
      */
-    private function create_question_usage_attempt(int $submissionid, ?question_usage_by_activity $basedon = null):
-            question_usage_by_activity {
+    private function create_question_usage_attempt(
+        int $submissionid, ?question_usage_by_activity $basedon = null
+    ): question_usage_by_activity {
         global $DB;
 
         $questionid = $this->get_question_id();
@@ -210,8 +216,7 @@ class assign_submission_qpy extends assign_submission_plugin {
 
         $transaction = $DB->start_delegated_transaction();
 
-        $quba = question_engine::make_questions_usage_by_activity('assignsubmission_qpy',
-            $this->assignment->get_context());
+        $quba = question_engine::make_questions_usage_by_activity('assignsubmission_qpy', $this->assignment->get_context());
         $quba->set_preferred_behaviour($this->get_config('preferredbehaviour'));
 
         $question = question_bank::load_question($questionid);
@@ -235,6 +240,13 @@ class assign_submission_qpy extends assign_submission_plugin {
         return $quba;
     }
 
+    /**
+     * Get the {@see question_usage_by_activity} for the submission.
+     *
+     * @param mixed $submission
+     * @param bool $mustexist
+     * @return question_usage_by_activity|null
+     */
     private function get_question_usage($submission, bool $mustexist = true): ?question_usage_by_activity {
         global $DB;
         $qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id]);
@@ -279,18 +291,16 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return bool
      */
     public function save(stdClass $submission, stdClass $data) {
-        // $this->set_error('bla');
         global $DB;
 
         $transaction = $DB->start_delegated_transaction();
-        //$qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id]);
-        //$quba = question_engine::load_questions_usage_by_activity($qpysubmission->questionusageid);
         $quba = $this->get_question_usage($submission);
         $quba->process_all_actions();
         question_engine::save_questions_usage_by_activity($quba);
         $transaction->allow_commit();
+
+        // TODO: trigger event, submission updated.
         return true;
-        // TODO: trigger event, submission updated
     }
 
     /**
@@ -317,6 +327,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      * Full submission view.
      *
      * @param stdClass $submission
+     * @param bool $mayshowhistory
      * @return string
      */
     public function view(stdClass $submission, bool $mayshowhistory = true) {
@@ -426,7 +437,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return array - return an array of files indexed by filename
      */
     public function get_files(stdClass $submissionorgrade, stdClass $user) {
-        // TODO
+        // TODO.
         return [];
     }
 
@@ -477,7 +488,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         // This method is called both when the whole assignment is getting deleted, but also on reset_userdata.
         // Only when the whole assignment is getting deleted, we should delete our entry in question_references.
         // This is very hacky.
-        $callingfunction = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]['function'];
+        $callingfunction = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'];
         if ($callingfunction !== 'reset_userdata') {
             if ($callingfunction !== 'delete_instance') {
                 debugging('Calling function is not delete_instance or reset_userdata');
@@ -518,7 +529,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return string[] with two elements, a plain text summary and an HTML summary.
      */
     public function submission_summary_for_messages(stdClass $submission): array {
-        // TODO
+        // TODO.
         return ['', ''];
     }
 }

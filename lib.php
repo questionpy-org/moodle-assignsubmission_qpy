@@ -21,7 +21,6 @@
  * @copyright  2025 Martin Gauk, TU Berlin, innoCampus - www.questionpy.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Serves assignment submissions and other files.
@@ -35,12 +34,7 @@ defined('MOODLE_INTERNAL') || die();
  * @param array $options - List of options affecting file serving.
  * @return bool false if file not found, does not return if found - just send the file
  */
-function assignsubmission_qpy_pluginfile($course,
-                                         $cm,
-                                         context $context,
-                                         $filearea,
-                                         $args,
-                                         $forcedownload,
-                                         array $options=[]) {
-    // TODO
+function assignsubmission_qpy_pluginfile($course, $cm, context $context, $filearea, $args, $forcedownload, array $options = []) {
+    // TODO: serve assignment submissions and other files.
+    return false;
 }
