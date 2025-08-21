@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Provides the information to backup the submission.
  *
@@ -67,36 +65,38 @@ class backup_assignsubmission_qpy_subplugin extends backup_subplugin {
         // Create XML elements.
         $subplugin = $this->get_subplugin_element();
         $subpluginwrapper = new backup_nested_element($this->get_recommended_name());
-        $subpluginelement = new backup_nested_element('submission_qpy',
-                                                      null,
-                                                      ['submission', 'questionusageid']);
+        $subpluginelement = new backup_nested_element('submission_qpy', null, ['submission', 'questionusageid']);
 
         // Connect XML elements into the tree.
         $subplugin->add_child($subpluginwrapper);
         $subpluginwrapper->add_child($subpluginelement);
 
         // Set source to populate the data.
-        $subpluginelement->set_source_table('assignsubmission_qpy',
-                                            ['submission' => backup::VAR_PARENTID]);
+        $subpluginelement->set_source_table('assignsubmission_qpy', ['submission' => backup::VAR_PARENTID]);
 
         $this->add_question_usages($subpluginelement, 'questionusageid');
 
         return $subplugin;
     }
 
+    /**
+     * Annotates every question category and its ancestors.
+     *
+     * @return void
+     */
     protected function annotate_question_categories() {
         global $DB;
 
         $backupid = $this->task->get_backupid();
         $categories = $DB->get_records_sql(
             "SELECT qc.id, qc.parent
-                   FROM {question_references} qr
-                   JOIN {question_bank_entries} qbe ON (qbe.id = qr.questionbankentryid)
-                   JOIN {question_categories} qc ON (qc.id = qbe.questioncategoryid)
-                  WHERE usingcontextid = :context AND component = 'assignsubmission_qpy'
-                            AND questionarea = 'main'", [
-                'context' => $this->task->get_contextid(),
-            ]
+             FROM {question_references} qr
+             JOIN {question_bank_entries} qbe ON (qbe.id = qr.questionbankentryid)
+             JOIN {question_categories} qc ON (qc.id = qbe.questioncategoryid)
+             WHERE usingcontextid = :context
+               AND component = 'assignsubmission_qpy'
+               AND questionarea = 'main'",
+            ['context' => $this->task->get_contextid()],
         );
 
         foreach ($categories as $category) {
@@ -110,7 +110,14 @@ class backup_assignsubmission_qpy_subplugin extends backup_subplugin {
         }
     }
 
-    protected function annotate_question_category_ancestors($parentid, $backupid) {
+    /**
+     * Annotates every question category ancestor recursively.
+     *
+     * @param int $parentid
+     * @param int $backupid
+     * @return void
+     */
+    protected function annotate_question_category_ancestors(int $parentid, int $backupid) {
         global $DB;
 
         if ($parentid) {

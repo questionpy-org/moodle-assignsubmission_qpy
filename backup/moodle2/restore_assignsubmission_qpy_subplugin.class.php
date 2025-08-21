@@ -119,7 +119,7 @@ class restore_assignsubmission_qpy_subplugin extends restore_subplugin {
      *
      * @param integer $newusageid
      */
-    protected function inform_new_usage_id($newusageid) {echo "inform_new_usage_id called\n";
+    protected function inform_new_usage_id($newusageid) {
         global $DB;
 
         if (!$this->currentsubmission) {
@@ -138,6 +138,8 @@ class restore_assignsubmission_qpy_subplugin extends restore_subplugin {
      * although this path is already handled by the method process_question_attempt_step. For some reason,
      * it is expected for this plugin to define process_question_attempt_step_data.
      * I don't know why this error doesn't happen in mod_quiz.
+     *
+     * @param mixed $data
      */
     public function process_question_attempt_step_data($data) {
         throw new coding_exception('process_question_attempt_step_data should never be called');
