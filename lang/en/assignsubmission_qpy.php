@@ -27,3 +27,4 @@ $string['enabled_help'] = 'If enabled, students are able to answer QuestionPy qu
 $string['pluginname'] = 'QuestionPy submission';
 $string['questionnotfound'] = 'Question not found.';
 $string['questionnotgradable'] = 'The question was not answered or was answered incompletely.';
+$string['submissionnotfound'] = 'No question submission found.';

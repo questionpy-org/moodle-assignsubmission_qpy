@@ -252,7 +252,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         $qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id]);
         if ($qpysubmission === false) {
             if ($mustexist) {
-                throw new coding_exception('No submission found for submission id ' . $submission->id);
+                throw new \moodle_exception('submissionnotfound', 'assignsubmission_qpy');
             }
             return null;
         }
@@ -369,7 +369,11 @@ class assign_submission_qpy extends assign_submission_plugin {
      *                        a message to display to the user
      */
     public function precheck_submission($submission) {
-        $quba = $this->get_question_usage($submission);
+        try {
+            $quba = $this->get_question_usage($submission);
+        } catch (\moodle_exception $e) {
+            return $e->getMessage();
+        }
         $attempt = $quba->get_question_attempt($quba->get_first_question_number());
         $response = $attempt->get_last_qt_data();
         $question = $attempt->get_question();
