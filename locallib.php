@@ -22,6 +22,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use assignsubmission_qpy\event\assessable_uploaded;
+use assignsubmission_qpy\event\submission_created;
+use assignsubmission_qpy\event\submission_updated;
+
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/questionlib.php');
@@ -152,8 +156,6 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return boolean - true if we added anything to the form
      */
     public function get_form_elements_for_user($submission, MoodleQuickForm $mform, stdClass $data, $userid) {
-        global $DB;
-
         if ($submission === null) {
             $mform->addElement('html', 'Keine Submission vorhanden!'); // TODO.
             return true;
@@ -203,30 +205,35 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @param int $submissionid
      * @param question_usage_by_activity|null $basedon
      * @return question_usage_by_activity
+     * @throws moodle_exception
      */
     private function create_question_usage_attempt(
         int $submissionid, ?question_usage_by_activity $basedon = null
     ): question_usage_by_activity {
         global $DB;
 
+        // Get the question.
         $questionid = $this->get_question_id();
         if ($questionid === null) {
             throw new moodle_exception('questionnotfound', 'assignsubmission_qpy');
         }
+        $question = question_bank::load_question($questionid);
 
-        $transaction = $DB->start_delegated_transaction();
-
+        // Create a new question usage.
         $quba = question_engine::make_questions_usage_by_activity('assignsubmission_qpy', $this->assignment->get_context());
         $quba->set_preferred_behaviour($this->get_config('preferredbehaviour'));
 
-        $question = question_bank::load_question($questionid);
-        $quba->add_question($question, null);
+        $quba->add_question($question);
         if ($basedon) {
             $oldqa = $basedon->get_question_attempt($basedon->get_first_question_number());
             $quba->start_question_based_on($quba->get_first_question_number(), $oldqa);
         } else {
             $quba->start_all_questions();
         }
+
+        $transaction = $DB->start_delegated_transaction();
+
+        // Save the question usage.
         question_engine::save_questions_usage_by_activity($quba);
 
         // Save usageid in our table.
@@ -249,14 +256,14 @@ class assign_submission_qpy extends assign_submission_plugin {
      */
     private function get_question_usage($submission, bool $mustexist = true): ?question_usage_by_activity {
         global $DB;
-        $qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id]);
-        if ($qpysubmission === false) {
+        $questionusageid = $DB->get_field('assignsubmission_qpy', 'questionusageid', ['submission' => $submission->id]);
+        if ($questionusageid === false) {
             if ($mustexist) {
                 throw new \moodle_exception('submissionnotfound', 'assignsubmission_qpy');
             }
             return null;
         }
-        return question_engine::load_questions_usage_by_activity($qpysubmission->questionusageid);
+        return question_engine::load_questions_usage_by_activity($questionusageid);
     }
 
     /**
@@ -289,24 +296,72 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @param stdClass $submission
      * @param stdClass $data
      * @return bool
+     * @throws moodle_exception
      */
     public function save(stdClass $submission, stdClass $data) {
-        global $DB;
+        global $DB, $USER;
 
-        $transaction = $DB->start_delegated_transaction();
+        $params = [
+            'context' => context_module::instance($this->assignment->get_course_module()->id),
+            'courseid' => $this->assignment->get_course()->id,
+            'objectid' => $submission->id,
+            'other' => [
+                'content' => '',
+                'pathnamehashes' => [],
+            ],
+        ];
+
+        if (!empty($submission->userid) && ($submission->userid != $USER->id)) {
+            $params['relateduserid'] = $submission->userid;
+        }
+
+        $event = assessable_uploaded::create($params);
+        $event->trigger();
+
+        // Get the group name as other fields are not transcribed in the logs and this information is important.
+        if (empty($submission->userid) && !empty($submission->groupid)) {
+            $groupname = $DB->get_field('groups', 'name', ['id' => $submission->groupid], MUST_EXIST);
+            $groupid = $submission->groupid;
+        } else {
+            $params['relateduserid'] = $submission->userid;
+        }
+
+        // Unset the 'other' and 'objectid' field from params for use in submission events.
+        unset($params['other'], $params['objectid']);
+
+        $params['other'] = [
+            'submissionid' => $submission->id,
+            'submissionattempt' => $submission->attemptnumber,
+            'submissionstatus' => $submission->status,
+            'groupid' => $groupid ?? 0,
+            'groupname' => $groupname ?? null,
+        ];
+
+        // Save the question usage.
         $quba = $this->get_question_usage($submission);
         $quba->process_all_actions();
         question_engine::save_questions_usage_by_activity($quba);
-        $transaction->allow_commit();
 
-        // TODO: trigger event, submission updated.
+        // Trigger created- or updated-event.
+        $qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id], 'id, issaved', MUST_EXIST);
+        $params['objectid'] = $qpysubmission->id;
+
+        if ($qpysubmission->issaved == 0) {
+            $event = submission_created::create($params);
+            $DB->set_field('assignsubmission_qpy', 'issaved', '1');
+        } else {
+            $event = submission_updated::create($params);
+        }
+        $event->set_assign($this->assignment);
+        $event->trigger();
+
         return true;
     }
 
     /**
      * Information to be displayed about the submission.
      *
-     * This is diplayed on multiple pages and should actually only show a summary.
+     * This is displayed on multiple pages and should actually only show a summary.
      *
      * @param stdClass $submission
      * @param bool $showviewlink
