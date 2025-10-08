@@ -29,6 +29,9 @@ use assignsubmission_qpy\event\submission_updated;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/questionlib.php');
+require_once($CFG->dirroot . '/question/type/questionpy/question.php');
+
+use assignsubmission_qpy\qtype_questionpy\bridge;
 
 /**
  * Library class for QuestionPy submission plugin extending submission plugin base class
@@ -163,7 +166,7 @@ class assign_submission_qpy extends assign_submission_plugin {
 
         $quba = $this->get_question_usage($submission, false);
         if (!$quba) {
-            $quba = $this->create_question_usage_attempt($submission->id);
+            $quba = $this->create_question_usage_attempt($submission);
         }
 
         $displayoptions = new question_display_options();
@@ -202,13 +205,13 @@ class assign_submission_qpy extends assign_submission_plugin {
     /**
      * Create a question usage for the current user and add the question.
      *
-     * @param int $submissionid
+     * @param stdClass $submission
      * @param question_usage_by_activity|null $basedon
      * @return question_usage_by_activity
      * @throws moodle_exception
      */
     private function create_question_usage_attempt(
-        int $submissionid, ?question_usage_by_activity $basedon = null
+        stdClass $submission, ?question_usage_by_activity $basedon = null
     ): question_usage_by_activity {
         global $DB;
 
@@ -224,6 +227,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         $quba->set_preferred_behaviour($this->get_config('preferredbehaviour'));
 
         $quba->add_question($question);
+        $this->set_qpy_bridge($quba, $submission);
         if ($basedon) {
             $oldqa = $basedon->get_question_attempt($basedon->get_first_question_number());
             $quba->start_question_based_on($quba->get_first_question_number(), $oldqa);
@@ -239,7 +243,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         // Save usageid in our table.
         $qpysubmission = new stdClass();
         $qpysubmission->assignment = $this->assignment->get_instance()->id;
-        $qpysubmission->submission = $submissionid;
+        $qpysubmission->submission = $submission->id;
         $qpysubmission->questionusageid = $quba->get_id();
         $DB->insert_record('assignsubmission_qpy', $qpysubmission);
 
@@ -263,7 +267,25 @@ class assign_submission_qpy extends assign_submission_plugin {
             }
             return null;
         }
-        return question_engine::load_questions_usage_by_activity($questionusageid);
+        $quba = question_engine::load_questions_usage_by_activity($questionusageid);
+        $this->set_qpy_bridge($quba, $submission);
+        return $quba;
+    }
+
+    /**
+     * Set the QuestionPy bridge to this plugin.
+     *
+     * @param question_usage_by_activity $quba
+     * @param stdClass $submission
+     * @return void
+     */
+    private function set_qpy_bridge(question_usage_by_activity $quba, \stdClass $submission): void {
+        $attempt = $quba->get_question_attempt($quba->get_first_question_number());
+        $question = $attempt->get_question();
+        if ($question instanceof \qtype_questionpy_question) {
+            $bridge = bridge::create_from_submission($attempt, $this->assignment->get_context(), $submission);
+            $question->set_bridge($bridge);
+        }
     }
 
     /**
@@ -481,7 +503,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         // Create a new question usage based on the old one.
         $oldqaba = $this->get_question_usage($oldsubmission, false);
         if ($oldqaba) {
-            $this->create_question_usage_attempt($submission->id, $oldqaba);
+            $this->create_question_usage_attempt($submission, $oldqaba);
         }
         return true;
     }
