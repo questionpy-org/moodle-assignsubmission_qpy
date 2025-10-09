@@ -160,7 +160,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      */
     public function get_form_elements_for_user($submission, MoodleQuickForm $mform, stdClass $data, $userid) {
         if ($submission === null) {
-            $mform->addElement('html', 'Keine Submission vorhanden!'); // TODO.
+            $mform->addElement('html', get_string('gotnosubmission', 'assignsubmission_qpy'));
             return true;
         }
 

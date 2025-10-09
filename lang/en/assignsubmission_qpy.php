@@ -25,6 +25,7 @@
 $string['enabled'] = 'QuestionPy submissions';
 $string['enabled_help'] = 'If enabled, students are able to answer QuestionPy questions.';
 $string['eventassessableuploaded'] = 'QuestionPy assessable uploaded';
+$string['gotnosubmission'] = 'No submission data available. Please try again.';
 $string['pluginname'] = 'QuestionPy submission';
 $string['questionnotfound'] = 'Question not found.';
 $string['questionnotgradable'] = 'The question was not answered or was answered incompletely.';
