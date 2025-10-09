@@ -95,13 +95,37 @@ class assign_submission_qpy extends assign_submission_plugin {
         global $DB;
 
         $errors = [];
-        if (!$DB->record_exists('question_versions', ['questionid' => $data['assignsubmission_qpy_questionid']])) {
+        $questionid = $data['assignsubmission_qpy_questionid'];
+
+        // Check that the question exists.
+        if (!$DB->record_exists('question_versions', ['questionid' => $questionid])) {
             $errors['assignsubmission_qpy_questionid'] = get_string('questionnotfound', 'assignsubmission_qpy');
+            return $errors;
+        }
+
+        // User must be allowed to view/use the question. In addition, we also require the question to be in the same
+        // course as this assign activity. Moodle supports using questions from other courses,
+        // but this requirement is safer for us (in case we forgot some additional checks).
+        $question = question_bank::load_question($questionid);
+        $questioncoursecontext = context::instance_by_id($question->contextid)->get_course_context();
+        $assigncoursecontext = $this->assignment->get_context()->get_course_context();
+        if (
+            $questioncoursecontext->id != $assigncoursecontext->id ||
+            !question_has_capability_on($question, 'use') ||
+            !question_has_capability_on($question, 'view')
+        ) {
+            $errors['assignsubmission_qpy_questionid'] = get_string('questionnopermission', 'assignsubmission_qpy');
+        } else if (!$question instanceof \qtype_questionpy_question) {
+            // Only QuestionPy questions are allowed.
+            $errors['assignsubmission_qpy_questionid'] = get_string('questionpyrequired', 'assignsubmission_qpy');
+        }
+
+        // Check grade type to be point.
+        if ($data['grade'] <= 0) {
+            $errors['grade'] = get_string('grademustbepoint', 'assignsubmission_qpy');
         }
 
         return $errors;
-        // TODO: Check permissions.
-        // TODO: Check grade type "point" selected.
     }
 
     /**
