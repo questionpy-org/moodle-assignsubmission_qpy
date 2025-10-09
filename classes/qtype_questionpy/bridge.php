@@ -46,7 +46,7 @@ class bridge extends \qtype_questionpy\question_bridge_base {
         $attributes = [];
 
         if (in_array('attempt_started_at', $requestedattributes)) {
-            $attributes['attempt_started_at'] = ($this->attempt->get_num_steps()) ?
+            $attributes['attempt_started_at'] = $this->attempt->get_step_iterator()->valid() ?
                 date('c', $this->attempt->get_step(0)->get_timecreated()) : date('c');
         }
 
