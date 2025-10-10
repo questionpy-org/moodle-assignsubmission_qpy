@@ -34,4 +34,6 @@ $string['questionnotgradable'] = 'The question was not answered or was answered 
 $string['questionpyrequired'] = 'Only QuestionPy questions are allowed.';
 $string['questionversion'] = 'v{$a}';
 $string['questionversion_select'] = 'Question version';
+$string['regradeall'] = 'Regrade all submissions (in background)';
+$string['regradeall_help'] = 'If checked, all existing submissions for this assignment will be regraded using the selected question version. This process runs in the background.';
 $string['submissionnotfound'] = 'No question submission found.';
