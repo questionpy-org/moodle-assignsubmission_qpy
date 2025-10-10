@@ -32,4 +32,6 @@ $string['questionnopermission'] = 'You do not have permission to access this que
 $string['questionnotfound'] = 'Question not found.';
 $string['questionnotgradable'] = 'The question was not answered or was answered incompletely.';
 $string['questionpyrequired'] = 'Only QuestionPy questions are allowed.';
+$string['questionversion'] = 'v{$a}';
+$string['questionversion_select'] = 'Question version';
 $string['submissionnotfound'] = 'No question submission found.';

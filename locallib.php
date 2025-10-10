@@ -57,6 +57,8 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return void
      */
     public function get_settings(MoodleQuickForm $mform) {
+        global $DB;
+
         $defaultquestionid = $this->get_question_id() ?? 0;
         if ($this->assignment->has_instance()) {
             $defaultbehaviour = $this->get_config('preferredbehaviour');
@@ -64,10 +66,49 @@ class assign_submission_qpy extends assign_submission_plugin {
             $defaultbehaviour = 'deferredfeedback';
         }
 
-        $mform->addElement('text', 'assignsubmission_qpy_questionid', 'Question ID');
-        $mform->setDefault('assignsubmission_qpy_questionid', $defaultquestionid);
-        $mform->setType('assignsubmission_qpy_questionid', PARAM_INT);
-        $mform->hideIf('assignsubmission_qpy_questionid', 'assignsubmission_qpy_enabled', 'notchecked');
+        // Check if there are already submissions.
+        $hassubmissions = false;
+        if ($this->assignment->has_instance()) {
+            $assignid = $this->assignment->get_instance()->id;
+            $hassubmissions = $DB->record_exists('assignsubmission_qpy', ['assignment' => $assignid]);
+        }
+
+        if ($hassubmissions && $defaultquestionid > 0) {
+            // If submissions exist, show a version selector instead of question ID field.
+            $entryid = $DB->get_field(
+                'question_versions',
+                'questionbankentryid',
+                ['questionid' => $defaultquestionid],
+                MUST_EXIST
+            );
+            $versions = $DB->get_records(
+                'question_versions',
+                ['questionbankentryid' => $entryid],
+                'version DESC',
+                'questionid, version'
+            );
+
+            $versionoptions = [];
+            foreach ($versions as $version) {
+                $versionoptions[$version->questionid] = get_string('questionversion', 'assignsubmission_qpy', $version->version);
+            }
+
+            $mform->addElement(
+                'select',
+                'assignsubmission_qpy_questionid',
+                get_string('questionversion_select', 'assignsubmission_qpy'),
+                $versionoptions
+            );
+            $mform->setDefault('assignsubmission_qpy_questionid', $defaultquestionid);
+            $mform->hideIf('assignsubmission_qpy_questionid', 'assignsubmission_qpy_enabled', 'notchecked');
+        } else {
+            // No submissions yet, show the question ID text field.
+            // TODO: We should add a selector here with all questions in course question banks.
+            $mform->addElement('text', 'assignsubmission_qpy_questionid', 'Question ID');
+            $mform->setDefault('assignsubmission_qpy_questionid', $defaultquestionid);
+            $mform->setType('assignsubmission_qpy_questionid', PARAM_INT);
+            $mform->hideIf('assignsubmission_qpy_questionid', 'assignsubmission_qpy_enabled', 'notchecked');
+        }
 
         $behaviours = question_engine::get_behaviour_options($defaultbehaviour);
         $mform->addElement(
