@@ -25,6 +25,7 @@
 use assignsubmission_qpy\event\assessable_uploaded;
 use assignsubmission_qpy\event\submission_created;
 use assignsubmission_qpy\event\submission_updated;
+use assignsubmission_qpy\helper;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -59,7 +60,7 @@ class assign_submission_qpy extends assign_submission_plugin {
     public function get_settings(MoodleQuickForm $mform) {
         global $DB;
 
-        $defaultquestionid = $this->get_question_id() ?? 0;
+        $defaultquestionid = helper::get_question_id($this->assignment) ?? 0;
         if ($this->assignment->has_instance()) {
             $defaultbehaviour = $this->get_config('preferredbehaviour');
         } else {
@@ -101,6 +102,15 @@ class assign_submission_qpy extends assign_submission_plugin {
             );
             $mform->setDefault('assignsubmission_qpy_questionid', $defaultquestionid);
             $mform->hideIf('assignsubmission_qpy_questionid', 'assignsubmission_qpy_enabled', 'notchecked');
+
+            // Add checkbox to regrade all submissions.
+            $mform->addElement(
+                'advcheckbox',
+                'assignsubmission_qpy_regradeall',
+                get_string('regradeall', 'assignsubmission_qpy')
+            );
+            $mform->addHelpButton('assignsubmission_qpy_regradeall', 'regradeall', 'assignsubmission_qpy');
+            $mform->hideIf('assignsubmission_qpy_regradeall', 'assignsubmission_qpy_enabled', 'notchecked');
         } else {
             // No submissions yet, show the question ID text field.
             // TODO: We should add a selector here with all questions in course question banks.
@@ -211,10 +221,17 @@ class assign_submission_qpy extends assign_submission_plugin {
             $updateref->version = $qv->version;
             $DB->update_record('question_references', $updateref);
         }
-        return true;
 
-        // TODO: If there are already submissions, only allow to change question version.
-        // TODO: Regrading if other question version selected?
+        // Schedule regrade task if checkbox was checked.
+        if (!empty($data->assignsubmission_qpy_regradeall)) {
+            $task = new \assignsubmission_qpy\task\regrade_all();
+            $task->set_custom_data([
+                'cmid' => $this->assignment->get_course_module()->id,
+            ]);
+            \core\task\manager::queue_adhoc_task($task, true);
+        }
+
+        return true;
     }
 
     /**
@@ -247,32 +264,6 @@ class assign_submission_qpy extends assign_submission_plugin {
     }
 
     /**
-     * Get the question id for this assignment.
-     *
-     * @return int|null
-     */
-    private function get_question_id(): ?int {
-        global $DB;
-
-        if (!$this->assignment->has_instance()) {
-            return null;
-        }
-
-        $id = $DB->get_field_sql("
-            SELECT qv.questionid
-              FROM {question_references} qr
-              JOIN {question_versions} qv ON
-                       (qv.questionbankentryid = qr.questionbankentryid AND qv.version = qr.version)
-             WHERE qr.usingcontextid = :context AND qr.component = 'assignsubmission_qpy'
-                       AND qr.questionarea = 'main' AND qr.itemid = :itemid", [
-            'context' => $this->assignment->get_context()->id,
-            'itemid' => $this->assignment->get_default_instance()->id,
-        ]);
-
-        return ($id !== false) ? intval($id) : null;
-    }
-
-    /**
      * Create a question usage for the current user and add the question.
      *
      * @param stdClass $submission
@@ -286,7 +277,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         global $DB;
 
         // Get the question.
-        $questionid = $this->get_question_id();
+        $questionid = helper::get_question_id($this->assignment);
         if ($questionid === null) {
             throw new moodle_exception('questionnotfound', 'assignsubmission_qpy');
         }
