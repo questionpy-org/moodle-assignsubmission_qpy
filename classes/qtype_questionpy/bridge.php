@@ -57,6 +57,11 @@ class bridge extends \qtype_questionpy\question_bridge_base {
                     date('c', $submission->timemodified) : null;
         }
 
+        if (in_array('lms_moodle_assignment_submission_id', $requestedattributes)) {
+            $submission = $this->get_submission_data();
+            $attributes['lms_moodle_assignment_submission_id'] = (int) $submission->id;
+        }
+
         if (in_array('lms_moodle_component_name', $requestedattributes)) {
             $attributes['lms_moodle_component_name'] = 'assignsubmission_qpy';
         }
