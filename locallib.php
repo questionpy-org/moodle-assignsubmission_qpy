@@ -108,7 +108,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         // but this requirement is safer for us (in case we forgot some additional checks).
         $question = question_bank::load_question($questionid);
         $questioncoursecontext = context::instance_by_id($question->contextid)->get_course_context();
-        $assigncoursecontext = $this->assignment->get_context()->get_course_context();
+        $assigncoursecontext = $this->assignment->get_course_context();
         if (
             $questioncoursecontext->id != $assigncoursecontext->id ||
             !question_has_capability_on($question, 'use') ||
