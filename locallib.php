@@ -94,6 +94,11 @@ class assign_submission_qpy extends assign_submission_plugin {
     public function settings_validation(array $data, array $files): array {
         global $DB;
 
+        // This should be handled by Moodle, but it is not.
+        if (empty($data['assignsubmission_qpy_enabled'])) {
+            return [];
+        }
+
         $errors = [];
         $questionid = $data['assignsubmission_qpy_questionid'];
 
