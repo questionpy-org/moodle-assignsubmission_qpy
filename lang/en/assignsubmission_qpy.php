@@ -22,6 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['attemptfiles'] = 'QuestionPy submission files';
 $string['enabled'] = 'QuestionPy submissions';
 $string['enabled_help'] = 'If enabled, students are able to answer QuestionPy questions.';
 $string['eventassessableuploaded'] = 'QuestionPy assessable uploaded';

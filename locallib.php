@@ -33,6 +33,8 @@ require_once($CFG->libdir . '/questionlib.php');
 require_once($CFG->dirroot . '/question/type/questionpy/question.php');
 
 use assignsubmission_qpy\qtype_questionpy\bridge;
+use qtype_questionpy\constants;
+use qtype_questionpy\local\files\response_file_service;
 
 /**
  * Library class for QuestionPy submission plugin extending submission plugin base class
@@ -42,6 +44,9 @@ use assignsubmission_qpy\qtype_questionpy\bridge;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assign_submission_qpy extends assign_submission_plugin {
+    /** @var string */
+    private const RESPONSE_FILES_FILEAREA = 'qpy_response_files';
+
     /**
      * Get the name of the qpy submission plugin.
      *
@@ -272,7 +277,8 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @throws moodle_exception
      */
     private function create_question_usage_attempt(
-        stdClass $submission, ?question_usage_by_activity $basedon = null
+        stdClass $submission,
+        ?question_usage_by_activity $basedon = null
     ): question_usage_by_activity {
         global $DB;
 
@@ -424,6 +430,44 @@ class assign_submission_qpy extends assign_submission_plugin {
         $quba = $this->get_question_usage($submission);
         $quba->process_all_actions();
         question_engine::save_questions_usage_by_activity($quba);
+
+        // Copy the latest submitted files (if any) to our file area.
+
+        $fs = get_file_storage();
+        // Instead of smartly handling existing files, we just delete them all and re-add them.
+        $fs->delete_area_files(
+            $this->assignment->get_context()->id,
+            'assignsubmission_qpy',
+            self::RESPONSE_FILES_FILEAREA,
+            $submission->id
+        );
+
+        $attempt = $quba->get_question_attempt(1);
+        // Get_last_qt_files doesn't work on pending steps, so we use the question_files_saver.
+        $filesaver = $attempt->get_last_qt_var(constants::QT_VAR_RESPONSE_FILES);
+        if ($filesaver === null) {
+            // Looks like the attempt doesn't use file uploads at all.
+            $files = [];
+        } else if (!($filesaver instanceof question_response_files)) {
+            debugging('Unexpected type of qt var ' . constants::QT_VAR_RESPONSE_FILES . ': ' . gettype($filesaver));
+            $files = [];
+        } else {
+            $files = $filesaver->get_files();
+        }
+
+        /** @var stored_file $file */
+        foreach ($files as $file) {
+            [$fieldname, $filename] = response_file_service::unmangle_filename($file->get_filename());
+
+            $fs->create_file_from_storedfile([
+                'component' => 'assignsubmission_qpy',
+                'filearea' => self::RESPONSE_FILES_FILEAREA,
+                'itemid' => $submission->id,
+                'contextid' => $this->assignment->get_context()->id,
+                'filepath' => '/' . $fieldname . '/',
+                'filename' => $filename,
+            ], $file);
+        }
 
         // Trigger created- or updated-event.
         $qpysubmission = $DB->get_record('assignsubmission_qpy', ['submission' => $submission->id], 'id, issaved', MUST_EXIST);
@@ -589,9 +633,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return array - An array of fileareas (keys) and descriptions (values)
      */
     public function get_file_areas() {
-        // TODO: This method is used by the External API to output files within this submission.
-        // It is not using ->get_files. We need to copy all submitted files of the last qt step to this file area.
-        return [];
+        return [self::RESPONSE_FILES_FILEAREA => get_string('attemptfiles', 'assignsubmission_qpy')];
     }
 
     /**
