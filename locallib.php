@@ -46,7 +46,7 @@ use qtype_questionpy\utils;
  */
 class assign_submission_qpy extends assign_submission_plugin {
     /** @var string */
-    private const RESPONSE_FILES_FILEAREA = 'qpy_response_files';
+    private const RESPONSE_FILES_AREA = 'qpy_response_files';
 
     /** @var int */
     private const SUMMARY_MAX_ITEMS = 5;
@@ -442,7 +442,7 @@ class assign_submission_qpy extends assign_submission_plugin {
         $fs->delete_area_files(
             $this->assignment->get_context()->id,
             'assignsubmission_qpy',
-            self::RESPONSE_FILES_FILEAREA,
+            self::RESPONSE_FILES_AREA,
             $submission->id
         );
 
@@ -465,7 +465,7 @@ class assign_submission_qpy extends assign_submission_plugin {
 
             $fs->create_file_from_storedfile([
                 'component' => 'assignsubmission_qpy',
-                'filearea' => self::RESPONSE_FILES_FILEAREA,
+                'filearea' => self::RESPONSE_FILES_AREA,
                 'itemid' => $submission->id,
                 'contextid' => $this->assignment->get_context()->id,
                 'filepath' => '/' . $fieldname . '/',
@@ -511,7 +511,7 @@ class assign_submission_qpy extends assign_submission_plugin {
             $files = $fs->get_area_files(
                 $this->assignment->get_context()->id,
                 'assignsubmission_qpy',
-                self::RESPONSE_FILES_FILEAREA,
+                self::RESPONSE_FILES_AREA,
                 $submission->id,
                 includedirs: false
             );
@@ -548,7 +548,7 @@ class assign_submission_qpy extends assign_submission_plugin {
 
             if ($files) {
                 $html .= get_string('summaryresponsefiles', 'assignsubmission_qpy', a: count($files));
-                $html .= $this->assignment->render_area_files('assignsubmission_qpy', self::RESPONSE_FILES_FILEAREA, $submission->id);
+                $html .= $this->assignment->render_area_files('assignsubmission_qpy', self::RESPONSE_FILES_AREA, $submission->id);
             }
 
             return $html;
@@ -668,15 +668,31 @@ class assign_submission_qpy extends assign_submission_plugin {
     /**
      * Produce a list of files suitable for export that represent this feedback or submission
      *
-     * @param stdClass $submissionorgrade assign_submission or assign_grade
+     * @param stdClass $submission assign_submission or assign_grade
      *                 For submission plugins this is the submission data, for feedback plugins it is the grade data
      * @param stdClass $user The user record for the current submission.
      *                         Needed for url rewriting if this is a group submission.
      * @return array - return an array of files indexed by filename
+     * @throws coding_exception
      */
-    public function get_files(stdClass $submissionorgrade, stdClass $user) {
-        // TODO.
-        return [];
+    public function get_files(stdClass $submission, stdClass $user): array {
+        // Mostly stolen from assign_submission_file.
+        $fs = get_file_storage();
+
+        $files = $fs->get_area_files(
+            $this->assignment->get_context()->id,
+            'assignsubmission_qpy',
+            self::RESPONSE_FILES_AREA,
+            $submission->id,
+            'timemodified, id',
+            false
+        );
+
+        $result = [];
+        foreach ($files as $file) {
+            $result[$file->get_filepath() . $file->get_filename()] = $file;
+        }
+        return $result;
     }
 
     /**
@@ -685,7 +701,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @return array - An array of fileareas (keys) and descriptions (values)
      */
     public function get_file_areas() {
-        return [self::RESPONSE_FILES_FILEAREA => get_string('attemptfiles', 'assignsubmission_qpy')];
+        return [self::RESPONSE_FILES_AREA => get_string('attemptfiles', 'assignsubmission_qpy')];
     }
 
     /**
