@@ -35,6 +35,7 @@ require_once($CFG->dirroot . '/question/type/questionpy/question.php');
 use assignsubmission_qpy\qtype_questionpy\bridge;
 use qtype_questionpy\constants;
 use qtype_questionpy\local\files\response_file_service;
+use qtype_questionpy\utils;
 
 /**
  * Library class for QuestionPy submission plugin extending submission plugin base class
@@ -46,6 +47,9 @@ use qtype_questionpy\local\files\response_file_service;
 class assign_submission_qpy extends assign_submission_plugin {
     /** @var string */
     private const RESPONSE_FILES_FILEAREA = 'qpy_response_files';
+
+    /** @var int */
+    private const SUMMARY_MAX_ITEMS = 5;
 
     /**
      * Get the name of the qpy submission plugin.
@@ -442,11 +446,11 @@ class assign_submission_qpy extends assign_submission_plugin {
             $submission->id
         );
 
-        $attempt = $quba->get_question_attempt(1);
-        // Get_last_qt_files doesn't work on pending steps, so we use the question_files_saver.
+        $attempt = $quba->get_question_attempt($quba->get_first_question_number());
+        // Get_last_qt_files doesn't work on pending steps, so we use the question_files_saver/_loader.
         $filesaver = $attempt->get_last_qt_var(constants::QT_VAR_RESPONSE_FILES);
-        if ($filesaver === null) {
-            // Looks like the attempt doesn't use file uploads at all.
+        if (!$filesaver) {
+            // Looks like no files were submitted.
             $files = [];
         } else if (!($filesaver instanceof question_response_files)) {
             debugging('Unexpected type of qt var ' . constants::QT_VAR_RESPONSE_FILES . ': ' . gettype($filesaver));
@@ -493,13 +497,61 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @param stdClass $submission
      * @param bool $showviewlink
      * @return string
+     * @throws coding_exception
+     * @throws moodle_exception
      */
-    public function view_summary(stdClass $submission, &$showviewlink) {
+    public function view_summary(stdClass $submission, &$showviewlink): string {
         // The grading page has a long table. Do not display the full submission.
         if (str_ends_with($_SERVER['SCRIPT_NAME'], 'view.php') && optional_param('action', '', PARAM_ALPHANUMEXT) === 'grading') {
-            $showviewlink = true;
-            // TODO: display the last step's summary?
-            return '';
+            $quba = $this->get_question_usage($submission);
+            $attempt = $quba->get_question_attempt($quba->get_first_question_number());
+            $response = utils::get_qpy_response($attempt);
+
+            $fs = get_file_storage();
+            $files = $fs->get_area_files(
+                $this->assignment->get_context()->id,
+                'assignsubmission_qpy',
+                self::RESPONSE_FILES_FILEAREA,
+                $submission->id,
+                includedirs: false
+            );
+            if ($response === null && !$files) {
+                return get_string('noqpyresponse', 'assignsubmission_qpy');
+            }
+
+            if (isset($response->data) && !(array)$response->data) {
+                // Showing the dynamic JS data when it isn't used would just be confusing.
+                unset($response->data);
+            }
+
+            if (count($files) + count((array) $response) > self::SUMMARY_MAX_ITEMS) {
+                $showviewlink = true;
+                return get_string('summarytoomanyitems', 'assignsubmission_qpy', a: [
+                    'responsefieldcount' => count((array) $response),
+                    'filecount' => count($files),
+                ]);
+            }
+
+            $html = '';
+
+            $listitems = [];
+            foreach ($response as $responsekey => $responsevalue) {
+                assert(is_string($responsevalue));
+                $listitems[] = get_string('summaryresponsestring', 'assignsubmission_qpy', [
+                    'key' => s($responsekey),
+                    'value' => s($responsevalue),
+                ]);
+            }
+            if ($listitems) {
+                $html .= html_writer::alist($listitems, ['class' => 'm-1 list-unstyled']);
+            }
+
+            if ($files) {
+                $html .= get_string('summaryresponsefiles', 'assignsubmission_qpy', a: count($files));
+                $html .= $this->assignment->render_area_files('assignsubmission_qpy', self::RESPONSE_FILES_FILEAREA, $submission->id);
+            }
+
+            return $html;
         }
 
         return $this->view($submission, false);
