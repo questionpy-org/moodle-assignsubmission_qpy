@@ -33,8 +33,69 @@
  * @param bool $forcedownload
  * @param array $options - List of options affecting file serving.
  * @return bool false if file not found, does not return if found - just send the file
+ * @throws coding_exception
+ * @throws dml_exception
+ * @throws moodle_exception
+ * @throws require_login_exception
  */
-function assignsubmission_qpy_pluginfile($course, $cm, context $context, $filearea, $args, $forcedownload, array $options = []) {
-    // TODO: serve assignment submissions and other files.
-    return false;
+function assignsubmission_qpy_pluginfile(
+    $course,
+    $cm,
+    context $context,
+    $filearea,
+    $args,
+    $forcedownload,
+    array $options = []
+): bool {
+    // Almost entirely identical to assignsubmission_file_pluginfile.
+    global $DB, $CFG;
+
+    if ($context->contextlevel != CONTEXT_MODULE) {
+        return false;
+    }
+
+    require_login($course, false, $cm);
+    $itemid = (int)array_shift($args);
+    $record = $DB->get_record(
+        'assign_submission',
+        ['id' => $itemid],
+        'userid, assignment, groupid',
+        MUST_EXIST
+    );
+    $userid = $record->userid;
+    $groupid = $record->groupid;
+
+    require_once($CFG->dirroot . '/mod/assign/locallib.php');
+
+    $assign = new assign($context, $cm, $course);
+
+    if ($assign->get_instance()->id != $record->assignment) {
+        return false;
+    }
+
+    if (
+        $assign->get_instance()->teamsubmission &&
+        !$assign->can_view_group_submission($groupid)
+    ) {
+        return false;
+    }
+
+    if (
+        !$assign->get_instance()->teamsubmission &&
+        !$assign->can_view_submission($userid)
+    ) {
+        return false;
+    }
+
+    $relativepath = implode('/', $args);
+
+    $fullpath = "/{$context->id}/assignsubmission_qpy/$filearea/$itemid/$relativepath";
+
+    $fs = get_file_storage();
+    if (!($file = $fs->get_file_by_hash(sha1($fullpath))) || $file->is_directory()) {
+        return false;
+    }
+
+    // Download MUST be forced - security!
+    send_stored_file($file, 0, 0, true, $options);
 }
