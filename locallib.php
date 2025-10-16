@@ -503,6 +503,7 @@ class assign_submission_qpy extends assign_submission_plugin {
     public function view_summary(stdClass $submission, &$showviewlink): string {
         // The grading page has a long table. Do not display the full submission.
         if (str_ends_with($_SERVER['SCRIPT_NAME'], 'view.php') && optional_param('action', '', PARAM_ALPHANUMEXT) === 'grading') {
+            $showviewlink = true; // Always show the link to view the attempt and history.
             $quba = $this->get_question_usage($submission);
             $attempt = $quba->get_question_attempt($quba->get_first_question_number());
             $response = utils::get_qpy_response($attempt);
@@ -525,7 +526,6 @@ class assign_submission_qpy extends assign_submission_plugin {
             }
 
             if (count($files) + count((array) $response) > self::SUMMARY_MAX_ITEMS) {
-                $showviewlink = true;
                 return get_string('summarytoomanyitems', 'assignsubmission_qpy', a: [
                     'responsefieldcount' => count((array) $response),
                     'filecount' => count($files),
