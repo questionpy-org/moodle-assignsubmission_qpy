@@ -16,6 +16,14 @@
 
 namespace assignsubmission_qpy;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/mod/assign/locallib.php');
+require_once($CFG->libdir . '/questionlib.php');
+
+use core\context;
+use question_display_options;
+
 /**
  * Helper methods for the mod_assign QuestionPy submission plugin.
  *
@@ -49,5 +57,99 @@ class helper {
         ]);
 
         return ($id !== false) ? intval($id) : null;
+    }
+
+    /**
+     * Get the question display options for a submission.
+     *
+     * @param \assign $assignment
+     * @param \stdClass $submission
+     * @param bool $review read-only/review mode
+     * @param bool $mayshowhistory display response history if the user has the capability
+     * @return question_display_options
+     */
+    public static function get_question_display_options(
+        \assign $assignment,
+        \stdClass $submission,
+        bool $review,
+        bool $mayshowhistory,
+    ): question_display_options {
+        $context = $assignment->get_context();
+
+        $displayoptions = new question_display_options();
+        $displayoptions->readonly = $review;
+
+        // Setting $marks works, $correctness gets overwritten / ignored by qbehaviour_adaptive, but we hide it in CSS.
+        $displayoptions->marks = question_display_options::HIDDEN;
+        $displayoptions->correctness = question_display_options::HIDDEN;
+        $displayoptions->flags = question_display_options::HIDDEN;
+        $displayoptions->history = question_display_options::HIDDEN;
+
+        if ($mayshowhistory && has_capability('mod/assign:grade', $context)) {
+            $displayoptions->history = question_display_options::VISIBLE;
+
+            // The attribute userinfoinhistory is either question_display_options::HIDDEN or the id of the user
+            // who owns the question attempt. Moodle only displays the name of the user to whom an attempt step
+            // belongs if their ID is different to userinfoinhistory.
+            if ($assignment->is_blind_marking() && !has_capability('mod/assign:viewblinddetails', $context)) {
+                $displayoptions->userinfoinhistory = question_display_options::HIDDEN;
+            } else if ($assignment->get_instance()->teamsubmission) {
+                $displayoptions->userinfoinhistory = 1; // Display all names (as 1 is the guest user id).
+            } else {
+                $displayoptions->userinfoinhistory = $submission->userid; // Only display a name if different from this user.
+            }
+        }
+
+        return $displayoptions;
+    }
+
+    /**
+     * Get the assignment object for a submission and check access permissions for the current user.
+     *
+     * @param context $context
+     * @param \stdClass|null $cm
+     * @param \stdClass $course
+     * @param \stdClass $submission
+     * @return \assign
+     */
+    public static function get_assignment_and_check_access(
+        context $context,
+        ?\stdClass $cm,
+        \stdClass $course,
+        \stdClass $submission
+    ): \assign {
+        if ($context->contextlevel != CONTEXT_MODULE) {
+            throw new \moodle_exception('invalidcourselevel', 'error');
+        }
+
+        if (!$cm) {
+            [, $cm] = get_course_and_cm_from_cmid($context->instanceid, 'assign', $course);
+        }
+
+        require_login($course, false, $cm);
+        $assign = new \assign($context, $cm, $course);
+
+        // Verify that the submission belongs to this assignment activity.
+        if ($assign->get_instance()->id != $submission->assignment) {
+            throw new \moodle_exception('nopermissions', 'error');
+        }
+
+        // Check team submission permissions.
+        if (
+            $assign->get_instance()->teamsubmission &&
+            !$assign->can_view_group_submission($submission->groupid)
+        ) {
+            throw new \moodle_exception('nopermissions', 'error');
+        }
+
+        // Check individual submission permissions.
+        if (
+            !$assign->get_instance()->teamsubmission &&
+            !$assign->can_view_submission($submission->userid)
+        ) {
+            throw new \moodle_exception('nopermissions', 'error');
+        }
+
+        return $assign;
     }
 }
