@@ -265,8 +265,12 @@ class assign_submission_qpy extends assign_submission_plugin {
             $quba = $this->create_question_usage_attempt($submission);
         }
 
-        $displayoptions = new question_display_options();
-        $displayoptions->flags = question_display_options::HIDDEN;
+        $displayoptions = helper::get_question_display_options(
+            $this->assignment,
+            $submission,
+            review: false,
+            mayshowhistory: false,
+        );
         $questionhtml = $quba->render_question($quba->get_first_question_number(), $displayoptions);
         $mform->addElement('html', $questionhtml);
         return true;
@@ -570,26 +574,12 @@ class assign_submission_qpy extends assign_submission_plugin {
             return '';
         }
 
-        $assignmentinstance = $this->assignment->get_instance();
-        $context = $this->assignment->get_context();
-
-        $displayoptions = new question_display_options();
-        $displayoptions->readonly = true;
-        $displayoptions->flags = question_display_options::HIDDEN;
-        $displayoptions->history = question_display_options::HIDDEN;
-
-        if ($mayshowhistory && has_capability('mod/assign:grade', $context)) {
-            $displayoptions->history = question_display_options::VISIBLE;
-
-            if ($this->assignment->is_blind_marking() && !has_capability('mod/assign:viewblinddetails', $context)) {
-                $displayoptions->userinfoinhistory = question_display_options::HIDDEN;
-            } else if ($assignmentinstance->teamsubmission) {
-                $displayoptions->userinfoinhistory = 1; // Display all names.
-            } else {
-                $displayoptions->userinfoinhistory = $submission->userid; // Only display a name if different from this user.
-            }
-        }
-
+        $displayoptions = helper::get_question_display_options(
+            $this->assignment,
+            $submission,
+            review: true,
+            mayshowhistory: true
+        );
         $quba->preload_all_step_users();
         return $quba->render_question($quba->get_first_question_number(), $displayoptions);
     }
