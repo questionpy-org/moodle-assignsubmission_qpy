@@ -356,7 +356,7 @@ class assign_submission_qpy extends assign_submission_plugin {
      */
     private function set_qpy_bridge(question_usage_by_activity $quba, \stdClass $submission): void {
         $attempt = $quba->get_question_attempt($quba->get_first_question_number());
-        $question = $attempt->get_question();
+        $question = $attempt->get_question(false);
         if ($question instanceof \qtype_questionpy_question) {
             $bridge = bridge::create_from_submission($attempt, $this->assignment->get_context(), $submission);
             $question->set_bridge($bridge);
