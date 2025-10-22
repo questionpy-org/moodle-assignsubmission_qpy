@@ -1,0 +1,47 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+
+    @template assignsubmission_qpy/collapsable_section
+
+    Small collapsible section. Inspired by core/local/collapsable_section.
+
+    Optional blocks:
+    * titlecontent - the collpasible title content.
+    * sectioncontent - the collapsible content.
+    * open - whether the collapsible section is open.
+
+    Example context (json):
+    {
+        "title": "Title",
+        "content": "Content",
+        "open": true
+    }
+}}
+<div>
+    <a data-bs-toggle="collapse"
+       href="#assignsubmission_qpy-collapse-{{uniqid}}"
+       role="button"
+        {{#open}} aria-expanded="true" {{/open}}
+        {{^open}} aria-expanded="false" {{/open}}
+       aria-controls="assignsubmission_qpy-collapse-{{uniqid}}">
+        {{title}}
+    </a>
+    <div class="collapse {{#open}}show{{/open}}" id="assignsubmission_qpy-collapse-{{uniqid}}">
+        {{{content}}}
+    </div>
+</div>

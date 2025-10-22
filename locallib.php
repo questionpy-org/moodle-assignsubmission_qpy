@@ -49,7 +49,7 @@ class assign_submission_qpy extends assign_submission_plugin {
     private const RESPONSE_FILES_AREA = 'qpy_response_files';
 
     /** @var int */
-    private const SUMMARY_MAX_ITEMS = 5;
+    private const COLLAPSIBLE_OPENED_THRESHOLD = 5;
 
     /**
      * Get the name of the qpy submission plugin.
@@ -505,60 +505,102 @@ class assign_submission_qpy extends assign_submission_plugin {
      * @throws moodle_exception
      */
     public function view_summary(stdClass $submission, &$showviewlink): string {
-        // The grading page has a long table. Do not display the full submission.
-        if (str_ends_with($_SERVER['SCRIPT_NAME'], 'view.php') && optional_param('action', '', PARAM_ALPHANUMEXT) === 'grading') {
-            $showviewlink = true; // Always show the link to view the attempt and history.
-            $quba = $this->get_question_usage($submission);
-            $attempt = $quba->get_question_attempt($quba->get_first_question_number());
-            $response = utils::get_qpy_response($attempt);
+        global $OUTPUT;
 
-            $fs = get_file_storage();
-            $files = $fs->get_area_files(
-                $this->assignment->get_context()->id,
-                'assignsubmission_qpy',
-                self::RESPONSE_FILES_AREA,
-                $submission->id,
-                includedirs: false
-            );
-            if ($response === null && !$files) {
-                return get_string('noqpyresponse', 'assignsubmission_qpy');
-            }
+        if (
+            !(str_ends_with($_SERVER['SCRIPT_NAME'], 'view.php') && optional_param('action', '', PARAM_ALPHANUMEXT) === 'grading')
+        ) {
+            // The grading page has a long table. Do not display the full submission.
+            return $this->view($submission, false);
+        }
 
-            if (isset($response->data) && !(array)$response->data) {
-                // Showing the dynamic JS data when it isn't used would just be confusing.
-                unset($response->data);
-            }
+        $showviewlink = true; // Always show the link to view the attempt and history.
+        $quba = $this->get_question_usage($submission);
+        $attempt = $quba->get_question_attempt($quba->get_first_question_number());
+        $response = utils::get_qpy_response($attempt);
+        $response = get_object_vars($response ?? (object) []);
 
-            if (count($files) + count((array) $response) > self::SUMMARY_MAX_ITEMS) {
-                return get_string('summarytoomanyitems', 'assignsubmission_qpy', a: [
-                    'responsefieldcount' => count((array) $response),
-                    'filecount' => count($files),
-                ]);
-            }
+        $fs = get_file_storage();
+        $files = $fs->get_area_files(
+            $this->assignment->get_context()->id,
+            'assignsubmission_qpy',
+            self::RESPONSE_FILES_AREA,
+            $submission->id,
+            includedirs: false
+        );
 
-            $html = '';
+        $dynamicdata = get_object_vars($response['data'] ?? (object) []);
+        unset($response['data']);
 
-            $listitems = [];
+        // Whether each collapsible should be open or closed.
+        $opened = count($response) + count($dynamicdata) + count($files) < self::COLLAPSIBLE_OPENED_THRESHOLD;
+
+        $html = '';
+
+        if ($response) {
+            ksort($response);
+
+            $responselistitems = [];
             foreach ($response as $responsekey => $responsevalue) {
-                assert(is_string($responsevalue));
-                $listitems[] = get_string('summaryresponsestring', 'assignsubmission_qpy', [
+                $responselistitems[] = get_string('summaryresponsestring', 'assignsubmission_qpy', [
                     'key' => s($responsekey),
                     'value' => s($responsevalue),
                 ]);
             }
-            if ($listitems) {
-                $html .= html_writer::alist($listitems, ['class' => 'm-1 list-unstyled']);
-            }
 
-            if ($files) {
-                $html .= get_string('summaryresponsefiles', 'assignsubmission_qpy', a: count($files));
-                $html .= $this->assignment->render_area_files('assignsubmission_qpy', self::RESPONSE_FILES_AREA, $submission->id);
-            }
-
-            return $html;
+            $title = get_string('response_summary_form_data', 'qtype_questionpy');
+            $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
+                'title' => $title . ' (' . count($responselistitems) . ')',
+                'content' => html_writer::alist($responselistitems, ['class' => 'm-1 list-unstyled']),
+                'open' => $opened,
+            ]);
         }
 
-        return $this->view($submission, false);
+        if ($dynamicdata) {
+            ksort($dynamicdata);
+
+            $dynamicdatalistitems = [];
+            foreach ($dynamicdata as $dynamicdatakey => $dynamicdatavalue) {
+                $dynamicdatalistitems[] = get_string('summaryresponsestring', 'assignsubmission_qpy', [
+                    'key' => s($dynamicdatakey),
+                    'value' => s(json_encode($dynamicdatavalue)),
+                ]);
+            }
+
+            $title = get_string('response_summary_dynamic_data', 'qtype_questionpy');
+            $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
+                'title' => $title . ' (' . count($dynamicdatalistitems) . ')',
+                'content' => html_writer::alist($dynamicdatalistitems, ['class' => 'm-1 list-unstyled']),
+                'open' => $opened,
+            ]);
+        }
+
+        if ($files) {
+            $filelistitems = [];
+            foreach ($files as $file) {
+                $fileurl = moodle_url::make_pluginfile_url(
+                    $file->get_contextid(),
+                    $file->get_component(),
+                    $file->get_filearea(),
+                    $file->get_itemid(),
+                    $file->get_filepath(),
+                    $file->get_filename()
+                );
+                $linktext = $file->get_filename() . ' (' . display_size($file->get_filesize()) . ')';
+
+                $filelistitems[] = html_writer::link($fileurl, $linktext);
+            }
+            sort($filelistitems);
+
+            $title = get_string('response_summary_files', 'qtype_questionpy');
+            $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
+                'title' => $title . ' (' . count($files) . ')',
+                'content' => html_writer::alist($filelistitems, ['class' => 'm-1']),
+                'open' => $opened,
+            ]);
+        }
+
+        return $html ?: get_string('noqpyresponse', 'assignsubmission_qpy');
     }
 
     /**
