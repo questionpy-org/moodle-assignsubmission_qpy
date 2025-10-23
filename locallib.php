@@ -510,10 +510,10 @@ class assign_submission_qpy extends assign_submission_plugin {
         if (
             !(str_ends_with($_SERVER['SCRIPT_NAME'], 'view.php') && optional_param('action', '', PARAM_ALPHANUMEXT) === 'grading')
         ) {
-            // The grading page has a long table. Do not display the full submission.
             return $this->view($submission, false);
         }
 
+        // The grading page has a long table. Do not display the full submission.
         $showviewlink = true; // Always show the link to view the attempt and history.
         $quba = $this->get_question_usage($submission);
         $attempt = $quba->get_question_attempt($quba->get_first_question_number());
@@ -536,6 +536,31 @@ class assign_submission_qpy extends assign_submission_plugin {
         $opened = count($response) + count($dynamicdata) + count($files) < self::COLLAPSIBLE_OPENED_THRESHOLD;
 
         $html = '';
+
+        if ($files) {
+            $filelistitems = [];
+            foreach ($files as $file) {
+                $fileurl = moodle_url::make_pluginfile_url(
+                    $file->get_contextid(),
+                    $file->get_component(),
+                    $file->get_filearea(),
+                    $file->get_itemid(),
+                    $file->get_filepath(),
+                    $file->get_filename()
+                );
+                $linktext = $file->get_filename() . ' (' . display_size($file->get_filesize()) . ')';
+
+                $filelistitems[] = html_writer::link($fileurl, $linktext);
+            }
+            sort($filelistitems);
+
+            $title = get_string('response_summary_files', 'qtype_questionpy');
+            $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
+                'title' => $title . ' (' . count($files) . ')',
+                'content' => html_writer::alist($filelistitems, ['class' => 'm-1']),
+                'open' => $opened,
+            ]);
+        }
 
         if ($response) {
             ksort($response);
@@ -571,31 +596,6 @@ class assign_submission_qpy extends assign_submission_plugin {
             $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
                 'title' => $title . ' (' . count($dynamicdatalistitems) . ')',
                 'content' => html_writer::alist($dynamicdatalistitems, ['class' => 'm-1 list-unstyled']),
-                'open' => $opened,
-            ]);
-        }
-
-        if ($files) {
-            $filelistitems = [];
-            foreach ($files as $file) {
-                $fileurl = moodle_url::make_pluginfile_url(
-                    $file->get_contextid(),
-                    $file->get_component(),
-                    $file->get_filearea(),
-                    $file->get_itemid(),
-                    $file->get_filepath(),
-                    $file->get_filename()
-                );
-                $linktext = $file->get_filename() . ' (' . display_size($file->get_filesize()) . ')';
-
-                $filelistitems[] = html_writer::link($fileurl, $linktext);
-            }
-            sort($filelistitems);
-
-            $title = get_string('response_summary_files', 'qtype_questionpy');
-            $html .= $OUTPUT->render_from_template('assignsubmission_qpy/collapsible', [
-                'title' => $title . ' (' . count($files) . ')',
-                'content' => html_writer::alist($filelistitems, ['class' => 'm-1']),
                 'open' => $opened,
             ]);
         }
