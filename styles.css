@@ -15,6 +15,12 @@
  * along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/** Hide the question info box with the question number, status and score. */
 .path-mod-assign .que.questionpy > div.info {
+    display: none;
+}
+
+/** Hide the question behaviour submit "Check" button on the read-only view page. */
+#page-mod-assign-view .que .im-controls button[name$='-submit'] {
     display: none;
 }
