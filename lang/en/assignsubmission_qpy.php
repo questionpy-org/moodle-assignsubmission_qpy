@@ -39,6 +39,4 @@ $string['questionversion_select'] = 'Question version';
 $string['regradeall'] = 'Regrade all submissions (in background)';
 $string['regradeall_help'] = 'If checked, all existing submissions for this assignment will be regraded using the selected question version. This process runs in the background.';
 $string['submissionnotfound'] = 'No question submission found.';
-$string['summaryresponsefiles'] = '{$a} files were part of the submission:';
-$string['summaryresponsestring'] = '<code>{$a->key}</code> = <code>"{$a->value}"</code>';
-$string['summarytoomanyitems'] = '{$a->responsefieldcount} response fields and {$a->filecount} files';
+$string['summaryresponsestring'] = '<code>{$a->key}</code> = <code>{$a->value}</code>';
