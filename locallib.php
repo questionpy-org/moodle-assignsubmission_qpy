@@ -515,7 +515,11 @@ class assign_submission_qpy extends assign_submission_plugin {
 
         // The grading page has a long table. Do not display the full submission.
         $showviewlink = true; // Always show the link to view the attempt and history.
-        $quba = $this->get_question_usage($submission);
+        $quba = $this->get_question_usage($submission, false);
+        if ($quba === null) {
+            return '';
+        }
+
         $attempt = $quba->get_question_attempt($quba->get_first_question_number());
         $response = utils::get_qpy_response($attempt);
         $response = get_object_vars($response ?? (object) []);
