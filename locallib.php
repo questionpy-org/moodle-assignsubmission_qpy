@@ -46,7 +46,7 @@ use qtype_questionpy\utils;
  */
 class assign_submission_qpy extends assign_submission_plugin {
     /** @var string */
-    private const RESPONSE_FILES_AREA = 'qpy_response_files';
+    public const RESPONSE_FILES_AREA = 'qpy_response_files';
 
     /** @var int */
     private const COLLAPSIBLE_OPENED_THRESHOLD = 5;

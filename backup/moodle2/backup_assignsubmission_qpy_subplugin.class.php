@@ -22,6 +22,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/mod/assign/submission/qpy/locallib.php');
+
 /**
  * Provides the information to backup the submission.
  *
@@ -74,6 +78,7 @@ class backup_assignsubmission_qpy_subplugin extends backup_subplugin {
         // Set source to populate the data.
         $subpluginelement->set_source_table('assignsubmission_qpy', ['submission' => backup::VAR_PARENTID]);
 
+        $subpluginelement->annotate_files('assignsubmission_qpy', assign_submission_qpy::RESPONSE_FILES_AREA, 'submission');
         $this->add_question_usages($subpluginelement, 'questionusageid');
 
         return $subplugin;

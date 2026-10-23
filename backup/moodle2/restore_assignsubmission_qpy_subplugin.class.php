@@ -22,6 +22,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/mod/assign/submission/qpy/locallib.php');
+
 /**
  * Restore subplugin class.
  *
@@ -129,6 +133,18 @@ class restore_assignsubmission_qpy_subplugin extends restore_subplugin {
         $this->currentsubmission->questionusageid = $newusageid;
         $DB->insert_record('assignsubmission_qpy', $this->currentsubmission);
         $this->currentsubmission = null;
+    }
+
+    /**
+     * Restore response files once all submissions and question attempt steps have been mapped.
+     */
+    protected function after_execute_submission(): void {
+        // Subplugins dispatch after_execute_<connectionpoint>, so the trait's after_execute() is not called.
+        foreach (question_engine::get_all_response_file_areas() as $filearea) {
+            $this->add_related_files('question', $filearea, 'question_attempt_step');
+        }
+
+        $this->add_related_files('assignsubmission_qpy', assign_submission_qpy::RESPONSE_FILES_AREA, 'submission');
     }
 
     /**
