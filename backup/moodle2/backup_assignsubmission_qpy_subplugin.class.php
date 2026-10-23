@@ -117,7 +117,7 @@ class backup_assignsubmission_qpy_subplugin extends backup_subplugin {
      * @param int $backupid
      * @return void
      */
-    protected function annotate_question_category_ancestors(int $parentid, int $backupid) {
+    protected function annotate_question_category_ancestors(int $parentid, $backupid) {
         global $DB;
 
         if ($parentid) {
